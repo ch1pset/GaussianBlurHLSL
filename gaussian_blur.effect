@@ -1,7 +1,5 @@
-// need a macro so number of weights is dynamic
 #define NUM_SAMPLES 24
-
-// resolution of source, a lower res than source will result in lower quality blur
+#define BLUR_AMOUNT 16.0
 #define RES_X 2560.0
 #define RES_Y 1440.0
 
@@ -76,6 +74,6 @@ technique Draw
     pass
     {
         vertex_shader = VShader(vert_in);
-        pixel_shader  = PShader(fragment_in, 16.0); // Set the number of samples to 24 and sigmas to 2.0 in both x and y directions
+        pixel_shader  = PShader(fragment_in, BLUR_AMOUNT); // Set the number of samples to 24 and sigmas to 2.0 in both x and y directions
     }
 }
