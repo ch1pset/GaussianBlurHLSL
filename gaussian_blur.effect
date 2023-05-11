@@ -1,0 +1,81 @@
+// need a macro so number of weights is dynamic
+#define NUM_SAMPLES 24
+
+// resolution of source, a lower res than source will result in lower quality blur
+#define RES_X 2560.0
+#define RES_Y 1440.0
+
+uniform float4x4 ViewProj;
+uniform texture2d image;
+
+sampler_state texSampler
+{
+    AddressU  = Clamp;
+    AddressV  = Clamp;
+    Filter    = Linear;
+};
+
+struct VertexInOut
+{
+    float4 pos : POSITION;
+    float2 uv  : TEXCOORD0;
+};
+
+VertexInOut VShader(VertexInOut vert_in)
+{
+    VertexInOut vert_out;
+    vert_out.pos = mul(float4(vert_in.pos.xyz, 1.0), ViewProj);
+    vert_out.uv = vert_in.uv;
+    return vert_out;
+}
+
+float4 PShader(VertexInOut fragment_in, float2 blurAmount) : TARGET
+{
+    float2 texSize = float2(RES_X, RES_Y);
+    float2 pixelSize = 1.0 / texSize;
+
+    // Set up weights for a Gaussian blur with the given blurAmount
+    float weights[NUM_SAMPLES];
+    float sigma_x = blurAmount.x;
+    float sigma_y = blurAmount.y;
+    float totalWeight = 0.0;
+    for (int i = 0; i < NUM_SAMPLES; i++)
+    {
+        float x = i - (NUM_SAMPLES - 1) / 2.0;
+        float y = 0.0;
+        weights[i] = exp(-(x * x) / (2 * sigma_x * sigma_x) - (y * y) / (2 * sigma_y * sigma_y));
+        if (i == 0)
+        {
+            totalWeight += weights[i];
+        }
+        else
+        {
+            totalWeight += 2.0 * weights[i];
+        }
+    }
+    for (int i = 0; i < NUM_SAMPLES; i++)
+    {
+        weights[i] /= 0.5*totalWeight;
+    }
+
+    // Sample the input texture with offsets based on the weights
+    float4 color = 0.0;
+    for (int i = 0; i < NUM_SAMPLES; i++)
+    {
+        float2 offset = float2(i - (NUM_SAMPLES - 1) / 2, 0) * pixelSize;
+        float weight = weights[i];
+        color += image.Sample(texSampler, fragment_in.uv + float2(offset.x, offset.y * sigma_y / sigma_x)) * weight;
+    }
+
+    return color;
+}
+
+
+technique Draw
+{
+    pass
+    {
+        vertex_shader = VShader(vert_in);
+        pixel_shader  = PShader(fragment_in, 16.0); // Set the number of samples to 24 and sigmas to 2.0 in both x and y directions
+    }
+}
