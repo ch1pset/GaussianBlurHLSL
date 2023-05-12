@@ -1,0 +1,61 @@
+uniform float4x4 ViewProj;
+uniform texture2d image;
+
+sampler_state texSampler
+{
+    AddressU  = Clamp;
+    AddressV  = Clamp;
+    Filter    = Linear;
+};
+
+#define BLUR_RADIUS 5.0  // Set the size of the blur rectangle
+#define BLUR_STEP 1    // Set the step size between each sample
+#define RESOLUTION 1920.0, 1080.0
+
+struct VertexInOut
+{
+    float4 pos : POSITION;
+    float2 uv  : TEXCOORD0;
+};
+
+VertexInOut VShader(VertexInOut vert_in)
+{
+    VertexInOut vert_out;
+    vert_out.pos = mul(float4(vert_in.pos.xyz, 1.0), ViewProj);
+    vert_out.uv = vert_in.uv;
+    return vert_out;
+}
+
+float4 PShader(VertexInOut fragment_in) : TARGET
+{
+    float2 texSize = float2(RESOLUTION);
+    float2 pixelSize = 1.0 / texSize;
+
+    // Calculate the number of samples needed based on the blur radius and step size
+    int numSamples = int(BLUR_RADIUS / BLUR_STEP);
+
+    // Sample the input texture multiple times, with a fixed offset applied to each sample
+    float4 color = 0.0;
+    for (int x = -numSamples; x <= numSamples; x++)
+    {
+        for (int y = -numSamples; y <= numSamples; y++)
+        {
+            float2 offset = float2(x, y) * pixelSize * (BLUR_STEP * 1.0);
+            color += image.Sample(texSampler, fragment_in.uv + offset);
+        }
+    }
+
+    // Average the color values of the sampled pixels to produce the final blurred color value
+    color /= (2 * numSamples + 1) * (2 * numSamples + 1);
+
+    return color;
+}
+
+technique Draw
+{
+    pass
+    {
+        vertex_shader = VShader(vert_in);
+        pixel_shader  = PShader(fragment_in);
+    }
+}
