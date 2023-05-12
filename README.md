@@ -9,9 +9,8 @@ Load `gaussian_blur.effect` using the Custom Effect filter for a source or scene
 
 To adjust blur, open `gaussian_blur.effect` with a text or code editor and adjust the paramters at the top.
 
-- NUM_SAMPLES - Number of samples taken
-- BLUR_AMOUNT - Adjusts size of blur offset, a higher offset may require higher samples
-- RES_X - Horizontal source resolution
-- RES_Y - Vertical source resolution
+- BLUR_SAMPLES - Size of the kernel, keep at 10 or lower for safety
+- BLUR_OFFSET_SCALE - The distance between samples
+- BLUR_INTENSITY - Amount of blur, diminishing returns after 2.0
 
-Using a lower resolution than source may improve performance, but lowers the quality of the blur.
+Using a lower resolution than source increases blur, but lowers the quality of the blur. Likewise, higher resolution than source increases the quality of the blur.
