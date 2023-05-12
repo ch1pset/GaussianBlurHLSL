@@ -1,10 +1,11 @@
-#define NUM_SAMPLES 24
-#define BLUR_AMOUNT 16.0
-#define RES_X 2560.0
-#define RES_Y 1440.0
+#define RESOLUTION float2(1920.0, 1080.0)
+#define BLUR_SAMPLES 5          // Size of the kernel, keep at 10 or lower for safety
+#define BLUR_OFFSET_SCALE 3     // The distance between samples
+#define BLUR_INTENSITY 2.0      // Increase this value to blur more, diminishing returns past 2.0
+#define SIGMA BLUR_INTENSITY
 
-uniform float4x4 ViewProj;
-uniform texture2d image;
+uniform float4x4 ViewProj;    // View projection matrix
+uniform texture2d image;      // Input image texture
 
 sampler_state texSampler
 {
@@ -27,53 +28,42 @@ VertexInOut VShader(VertexInOut vert_in)
     return vert_out;
 }
 
-float4 PShader(VertexInOut fragment_in, float2 blurAmount) : TARGET
+float4 PShader(VertexInOut fragment_in) : TARGET
 {
-    float2 texSize = float2(RES_X, RES_Y);
-    float2 pixelSize = 1.0 / texSize;
-
-    // Set up weights for a Gaussian blur with the given blurAmount
-    float weights[NUM_SAMPLES];
-    float sigma_x = blurAmount.x;
-    float sigma_y = blurAmount.y;
-    float totalWeight = 0.0;
-    for (int i = 0; i < NUM_SAMPLES; i++)
+    // Calculate the kernel based on the sigma value
+    float kernel[BLUR_SAMPLES];
+    float kernelSum = 0.0;
+    for (int i = 0; i < BLUR_SAMPLES; i++)
     {
-        float x = i - (NUM_SAMPLES - 1) / 2.0;
-        float y = 0.0;
-        weights[i] = exp(-(x * x) / (2 * sigma_x * sigma_x) - (y * y) / (2 * sigma_y * sigma_y));
-        if (i == 0)
-        {
-            totalWeight += weights[i];
-        }
-        else
-        {
-            totalWeight += 2.0 * weights[i];
-        }
+        float x = i - (BLUR_SAMPLES - 1) / 2.0;
+        kernel[i] = exp(-(x * x) / (2 * SIGMA * SIGMA));
+        kernelSum += kernel[i];
     }
-    for (int i = 0; i < NUM_SAMPLES; i++)
+    for (int i = 0; i < BLUR_SAMPLES; i++)
     {
-        weights[i] /= 0.5*totalWeight;
+        kernel[i] /= kernelSum;
     }
 
     // Sample the input texture with offsets based on the weights
     float4 color = 0.0;
-    for (int i = 0; i < NUM_SAMPLES; i++)
+    for (int i = 0; i < BLUR_SAMPLES; i++)
     {
-        float2 offset = float2(i - (NUM_SAMPLES - 1) / 2, 0) * pixelSize;
-        float weight = weights[i];
-        color += image.Sample(texSampler, fragment_in.uv + float2(offset.x, offset.y * sigma_y / sigma_x)) * weight;
+        for (int j = 0; j < BLUR_SAMPLES; j++) 
+        {
+            float2 offset = float2(i - (BLUR_SAMPLES - 1) / 2, j - (BLUR_SAMPLES - 1) / 2) * BLUR_OFFSET_SCALE;
+            float weight = kernel[i] * kernel[j];
+            color += image.Sample(texSampler, fragment_in.uv + offset / RESOLUTION) * weight;
+        }
     }
 
     return color;
 }
-
 
 technique Draw
 {
     pass
     {
         vertex_shader = VShader(vert_in);
-        pixel_shader  = PShader(fragment_in, BLUR_AMOUNT); // Set the number of samples to 24 and sigmas to 2.0 in both x and y directions
+        pixel_shader  = PShader(fragment_in);
     }
 }
